@@ -1,0 +1,349 @@
+start
+kotlinFile
+  : preamble topLevelObject*
+  ;
+start
+script
+  : preamble expression*
+  ;
+preamble
+(used by script, kotlinFile)
+  : fileAnnotations? packageHeader? import*
+  ;
+fileAnnotations
+  : fileAnnotation*
+  ;
+fileAnnotation
+  : "@" "file" ":" ("[" unescapedAnnotation+ "]" | unescapedAnnotation)
+  ;
+packageHeader
+  : modifiers "package" SimpleName{"."} SEMI?
+  ;
+
+import
+  : "import" SimpleName{"."} ("." "*" | "as" SimpleName)? SEMI?
+  ;
+
+topLevelObject
+  : class
+  : object
+  : function
+  : property
+  : typeAlias
+  ;
+typeAlias
+  : modifiers "typealias" SimpleName typeParameters? "=" type
+  ;
+
+class
+  : modifiers ("class" | "interface") SimpleName
+      typeParameters?
+      primaryConstructor?
+      (":" annotations delegationSpecifier{","})?
+      typeConstraints
+      (classBody? | enumClassBody)
+  ;
+primaryConstructor
+  : (modifiers "constructor")? ("(" functionParameter{","} ")")
+  ;
+classBody
+  : ("{" members "}")?
+  ;
+members
+  : memberDeclaration*
+  ;
+delegationSpecifier
+  : constructorInvocation 
+  : userType
+  : explicitDelegation
+  ;
+explicitDelegation
+  : userType "by" expression 
+  ;
+typeParameters
+  : "<" typeParameter{","} ">"
+  ;
+typeParameter
+  : modifiers SimpleName (":" userType)?
+  ;
+
+typeConstraints
+  : ("where" typeConstraint{","})?
+  ;
+typeConstraint
+  : annotations SimpleName ":" type
+  ;
+
+memberDeclaration
+  : companionObject
+  : object
+  : function
+  : property
+  : class
+  : typeAlias
+  : anonymousInitializer
+  : secondaryConstructor
+  ;
+anonymousInitializer
+  : "init" block
+  ;
+companionObject
+  : modifiers "companion" "object" SimpleName? (":" delegationSpecifier{","})? classBody?
+  ;
+valueParameters
+  : "(" functionParameter{","}? ")"
+  ;
+functionParameter
+  : modifiers ("val" | "var")? parameter ("=" expression)?
+  ;
+block
+  : "{" statements "}"
+  ;
+function
+  : modifiers "fun"
+      typeParameters?
+      (type ".")?
+      SimpleName
+      typeParameters? valueParameters (":" type)?
+      typeConstraints
+      functionBody?
+  ;
+functionBody
+  : block
+  : "=" expression
+  ;
+variableDeclarationEntry
+  : SimpleName (":" type)?
+  ;
+multipleVariableDeclarations
+  : "(" variableDeclarationEntry{","} ")"
+  ;
+property
+  : modifiers ("val" | "var")
+      typeParameters?
+      (type ".")?
+      (multipleVariableDeclarations | variableDeclarationEntry)
+      typeConstraints
+      ("by" | "=" expression SEMI?)?
+      (getter? setter? | setter? getter?) SEMI?
+  ;
+
+getter
+  : modifiers "get"
+  : modifiers "get" "(" ")" (":" type)? functionBody
+  ;
+setter
+  : modifiers "set"
+  : modifiers "set" "(" modifiers (SimpleName | parameter) ")" functionBody
+  ;
+parameter
+  : SimpleName ":" type
+  ;
+object
+  : "object" SimpleName primaryConstructor? (":" delegationSpecifier{","})? classBody?
+secondaryConstructor
+  : modifiers "constructor" valueParameters (":" constructorDelegationCall)? block
+  ;
+constructorDelegationCall
+  : "this" valueArguments
+  : "super" valueArguments
+  ;
+
+enumClassBody
+  : "{" enumEntries (";" members)? "}"
+  ;
+enumEntries
+  : (enumEntry{","} ","? ";"?)?
+  ;
+enumEntry
+  : modifiers SimpleName ("(" arguments ")")? classBody?
+  ;
+
+type
+(used by namedInfix, simpleUserType, getter, atomicExpression, whenCondition, property, typeArguments, function, typeAlias, parameter, functionType, variableDeclarationEntry, lambdaParameter, typeConstraint)
+  : typeModifiers typeReference
+  ;
+typeReference
+  : "(" typeReference ")"
+  : functionType
+  : userType
+  : nullableType
+  : "dynamic"
+  ;
+nullableType
+  : typeReference "?"
+  ;
+userType
+  : simpleUserType{"."}
+  ;
+simpleUserType
+  : SimpleName ("<" (optionalProjection type | "*"){","} ">")?
+  ;
+optionalProjection
+  : varianceAnnotation
+  ;
+functionType
+  : (type ".")? "(" parameter{","}? ")" "->" type?
+  ;
+
+controlStructureBody
+  : block
+  : blockLevelExpression
+  ;
+if
+(used by atomicExpression)
+  : "if" "(" expression ")" controlStructureBody SEMI? ("else" controlStructureBody)?
+  ;
+try
+(used by atomicExpression)
+  : "try" block catchBlock* finallyBlock?
+  ;
+catchBlock
+(used by try)
+  : "catch" "(" annotations SimpleName ":" userType ")" block
+  ;
+finallyBlock
+(used by try)
+  : "finally" block
+  ;
+loop
+(used by atomicExpression)
+  : for
+  : while
+  : doWhile
+  ;
+for
+(used by loop)
+  : "for" "(" annotations (multipleVariableDeclarations | variableDeclarationEntry) "in" expression ")" controlStructureBody
+  ;
+while
+(used by loop)
+  : "while" "(" expression ")" controlStructureBody
+  ;
+doWhile
+(used by loop)
+  : "do" controlStructureBody "while" "(" expression ")"
+  ;
+ed by atomicExpression)
+  : "when" ("(" expression ")")? "{"
+        whenEntry*
+    "}"
+  ;
+whenEntry
+(used by when)
+  : whenCondition{","} "->" controlStructureBody SEMI
+  : "else" "->" controlStructureBody SEMI
+  ;
+whenCondition
+(used by whenEntry)
+  : expression
+  : ("in" | "!in") expression
+  : ("is" | "!is") type
+  ;
+Modifiers
+modifiers
+(used by typeParameter, getter, packageHeader, class, property, function, typeAlias, secondaryConstructor, enumEntry, setter, companionObject, primaryConstructor, functionParameter)
+  : (modifier | annotations)*
+  ;
+typeModifiers
+(used by type)
+  : (suspendModifier | annotations)*
+  ;
+modifier
+(used by modifiers)
+  : classModifier
+  : accessModifier
+  : varianceAnnotation
+  : memberModifier
+  : parameterModifier
+  : typeParameterModifier
+  : functionModifier
+  : propertyModifier
+  ;
+classModifier
+(used by modifier)
+  : "abstract"
+  : "final"
+  : "enum"
+  : "open"
+  : "annotation"
+  : "sealed"
+  : "data"
+  ;
+memberModifier
+(used by modifier)
+  : "override"
+  : "open"
+  : "final"
+  : "abstract"
+  : "lateinit"
+  ;
+accessModifier
+(used by modifier)
+  : "private"
+  : "protected"
+  : "public"
+  : "internal"
+  ;
+varianceAnnotation
+(used by modifier, optionalProjection)
+  : "in"
+  : "out"
+  ;
+parameterModifier
+(used by modifier)
+  : "noinline"
+  : "crossinline"
+  : "vararg"
+  ;
+typeParameterModifier
+(used by modifier)
+  : "reified"
+  ;
+functionModifier
+(used by modifier)
+  : "tailrec"
+  : "operator"
+  : "infix"
+  : "inline"
+  : "external"
+  : suspendModifier
+  ;
+propertyModifier
+(used by modifier)
+  : "const"
+  ;
+suspendModifier
+(used by typeModifiers, functionModifier)
+  : "suspend"
+  ;
+Annotations
+annotations
+(used by catchBlock, prefixUnaryOperation, blockLevelExpression, for, typeModifiers, class, modifiers, typeConstraint)
+  : (annotation | annotationList)*
+  ;
+annotation
+(used by annotations)
+  : "@" (annotationUseSiteTarget ":")? unescapedAnnotation
+  ;
+annotationList
+(used by annotations)
+  : "@" (annotationUseSiteTarget ":")? "[" unescapedAnnotation+ "]"
+  ;
+annotationUseSiteTarget
+(used by annotation, annotationList)
+  : "field"
+  : "file"
+  : "property"
+  : "get"
+  : "set"
+  : "receiver"
+  : "param"
+  : "setparam"
+  : "delegate"
+  ;
+unescapedAnnotation
+(used by annotation, fileAnnotation, annotatedLambda, annotationList)
+  : SimpleName{"."} typeArguments? valueArguments?
+  ;
+
